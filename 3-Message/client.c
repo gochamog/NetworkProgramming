@@ -131,6 +131,8 @@ void commun(int sock)
         return;
     }
 
+    printf("%lu バイト\n", sizeof(msg));
+
     // 送信処理
     if (send(sock, msg, strlen(msg), 0) != strlen(msg))
         DieWithError("send() sent a message of unexpected bytes");
