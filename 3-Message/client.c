@@ -1,33 +1,10 @@
 #include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
-
+#include <string.h>
+#include <stdlib.h>
 #define BUF_SIZE 256
-#define MONEY_DIGIT_SIZE 10
-
-void DieWithError(char *);
-int prepare_client_socket(char *, int);
-void my_scanf(char *, int);
-void commun(int);
-void read_until_delim(int, char *, char, int);
-
-int main(int argc, char *argv[])
-{
-
-    if (argc != 3)
-        DieWitherror("usage:./client ip_address port");
-
-    int sock = prepare_client_socket(argv[1], atoi(argv[2]));
-
-    commun(sock);
-
-    close(sock);
-
-    return 0;
-}
 
 void DieWithError(char *errorMessage)
 {
@@ -35,96 +12,51 @@ void DieWithError(char *errorMessage)
     exit(1);
 }
 
-int prepare_client_socket(char *ipaddr, int port)
-{
-    int sock = socket(PF_INET, SOCK_STREAM, 0);
-    if (sock < 0)
-        DieWithError("socket() failed");
-
-    struct sockaddr_in target;
-    target.sin_family = AF_INET;
-    target.sin_addr.s_addr = inet_addr(ipaddr);
-    target.sin_port = htons(port);
-    if (connect(sock, (struct sockaddr *)&target, sizeof(target)) < 0)
-        DieWithError("connect() failed");
-
-    return sock;
-}
-
-void my_scanf(char *buf, int num_letter)
-{
-    //
-    char format[20];
-    sprintf(format, "%s%d%s", "%", num_letter, "s%*[^\n]");
-    sprintf(format, buf);
-    getchar();
-}
-
-void read_until_delim(int sock, char *buf, char delimiter, int max_length)
-{
-    int len_r = 0;
-    int index_letter = 0;
-
-    while (index_letter < max_length - 1)
-    {
-
-        if ((len_r = recv(sock, buf + index_letter, 1, 0)) <= 0)
-        {
-
-            printf("接続が切れました\n");
-            return;
-        }
-        if (buf[index_letter] == delimiter)
-            break;
-        else
-            index_letter++;
-    }
-    // nullを末尾に追加
-    buf[index_letter] = '\0';
-}
-
 void commun(int sock)
 {
-    char cmd[2] = "";
-    char withdraw[MONEY_DIGIT_SIZE + 1];
-    char deposit[MONEY_DIGIT_SIZE + 1];
-    char msg[BUF_SIZE];
-
-    printf("0:引き出し　1：預け入れ　2：残高照会　9：終了\n");
-    printf("何をしますか？　> ");
-
-    my_scanf(cmd, 1);
-
-    switch (cmd[0])
+    char buf[BUF_SIZE];
+    int len_r;
+    char *message = ("この授業が終わったら、俺……ガチャ回すんだ……！");
+    if (send(sock, message, strlen(message), 0) != strlen(message))
     {
-    case '0':
-        //引き出し処理
-        printf("引き出す金額を入力してください　>");
-        my_scanf(withdraw, MONEY_DIGIT_SIZE);
+        DieWithError("send() sent a message of unexpected bytes");
+    }
+    if ((len_r = recv(sock, buf, BUF_SIZE, 0)) <= 0)
+    {
+        DieWithError("recv() failed");
+    } /*0:サーバーが正常終了 負:エラー(多分)*/
+    buf[len_r] = '\0';
+    printf("%s\n", buf);
+    recv(sock, buf, BUF_SIZE, 0);
+}
 
-        sprintf(msg, "%s_", withdraw);
-        break;
-    case '1':
-        //
-        printf("預け入れる金額を入力してください　>");
-        my_scanf(deposit, MONEY_DIGIT_SIZE);
+int main(int argc /*実行時の引数の数*/, char **argv)
+{
 
-        sprintf(msg, "%s_0_", deposit);
-        break;
-    case '2':
-        //
-        strcpy(msg, "0_0_");
-        break;
-    default:
-        //
-        printf("番号が確認できませんでした。\n");
-        return;
+    if (argc != 3)
+        DieWithError("arguments is not available");
+
+    char *server_ipaddr = argv[1];   /*"10.13.64.20"*/
+    int server_port = atoi(argv[2]); //10001;
+    int sock = socket(PF_INET, SOCK_STREAM, 0);
+    if (sock < 0)
+        DieWithError("socket() failed"); /*-1はエラー*/
+
+    struct sockaddr_in target;
+
+    target.sin_family = AF_INET;
+    target.sin_addr.s_addr = inet_addr(server_ipaddr);
+    target.sin_port = htons(server_port);
+
+    if (connect(sock, (struct sockaddr *)&target, sizeof(target)) < 0)
+    {
+        DieWithError("connect() failed");
     }
 
-    if (send(sock, msg, strlen(msg), 0) != strlen(msg))
-        DieWithError("send() sent a message of unexpected bytes");
-    //受信処理
-    read_until_delim(sock, msg, '_', BUF_SIZE);
-    //表示処理
-    printf("残高は%d円になりました", atoi(msg));
+    /*printf("sock is %d\n",sock);*/
+
+    commun(sock);
+
+    close(sock);
+    return 0;
 }
